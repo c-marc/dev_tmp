@@ -68,7 +68,7 @@ test@tpf <- 0.9
 test@tpf
 ```
 
-Note that types of the propoerties are validated when you instantiate or modify properties:
+Note that types of the properties are validated when you instantiate or modify properties:
 
 ```{r}
 try(perf(tpf = "what"))
@@ -192,7 +192,7 @@ perf <- new_class("perf",
     tpf = class_numeric,
     fpf = class_numeric,
     plr = new_property(
-      getter = function(self) self@tpf/ self@fpf,
+      getter = function(self) self@tpf / self@fpf,
   )
 ))
 ```
@@ -213,7 +213,7 @@ perf <- new_class("perf",
     fpf = class_numeric,
     plr = new_property(
       class = class_double,
-      getter = function(self) self@tpf/ self@fpf,
+      getter = function(self) self@tpf / self@fpf,
       setter = function(self, value) {
         #here we assume tpf is preserved
         self@fpf <- self@tpf / value
@@ -232,3 +232,74 @@ test@plr
 test@plr <- 5
 test
 ```
+
+## Conclusion
+
+Therefore we could end up with the following solution:
+
+- keep validation obviously
+- keep getters (computed prop)
+- add other getters
+- drop default ?
+- drop setters (dynamic prop): in our case, there is no ascendance of a prop over another one, so it's confusing to allow such modification
+
+```{r}
+perf <- new_class("perf", 
+  properties = list(
+    tpf = class_numeric,
+    fpf = class_numeric,
+    se = new_property(
+      getter = function(self) self@tpf
+    ),
+    sp = new_property(
+      getter = function(self) 1 - self@fpf
+    ),
+    plr = new_property(
+      getter = function(self) self@tpf / self@fpf
+    ),
+    nlr = new_property(
+      getter = function(self) (1-self@tpf) / (1-self@fpf)
+    )
+  ),
+  validator = function(self){
+    if (length(self@tpf) != 1) {
+      "@tpf must be length 1"
+    } else if (length(self@fpf) != 1) {
+      "@fpf must be length 1"
+    } else if (self@tpf <= 0 | self@tpf >= 1) {
+      "@tpf must be >0 and <1"
+    } else if (self@fpf <= 0 | self@fpf >= 1) {
+      "@fpf must be >0 and <1"
+    }
+  }
+)
+```
+
+```{r}
+test <- perf(tpf = 0.9, fpf = 0.15)
+test
+```
+
+## What's the point
+
+```{r}
+post <- function(x, pre){
+  stopifnot(check_is_R7(x, perf))
+  list(pos_post = pre * x@plr, neg_post = pre * x@nlr)
+}
+post(test, .1)
+```
+
+### Where to go from there
+
+About R7, so far our example doesn't cover:
+
+- OOP benefits
+- inheritance
+- super()
+- multiple dispatch
+
+About our example:
+
+- define a probability class (0-1) and use it for tpf, fpf, posteriors...
+- relax the scalar requirement (for vectorized situation) but set up equal length validation
